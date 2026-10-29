@@ -2,11 +2,9 @@
 
 A personal tracker for UCI's Anteater Express. It uses the same live TransLoc feed as shuttle.uci.edu.
 
-- **Favorites**: your starred stops, each showing the next buses per line. Refreshes every 15 seconds.
-- **Live Map**: buses moving on the route lines, refreshed every 5 seconds. Tap a stop to see its arrivals.
-- **All Stops**: search every stop and star the ones you use.
-- **Bus-is-close alerts**: on a stop's screen, tap the 🔔 next to a line and pick 1, 3, 5 or 10 minutes.
-- **Widget**: home screen (small or medium) and lock screen. Long-press it › **Edit Widget** › choose a stop.
+The Favorites tab lists your starred stops with the next buses on each line, refreshed every 15 seconds. The Live Map shows buses moving along the route lines (every 5 seconds); tap a stop to see its arrivals. All Stops lets you search every stop and star the ones you use.
+
+On a stop's screen, tap the 🔔 next to a line and pick 1, 3, 5 or 10 minutes to get a bus-is-close alert. There's also a widget for the home screen (small or medium) and the lock screen. Long-press it, choose **Edit Widget**, and pick a stop.
 
 ## Build
 
@@ -30,9 +28,9 @@ Run the tests: `xcodebuild test -project BusTrack.xcodeproj -scheme BusTrack -de
 
 ## Known limits
 
-- **Widget refresh**: iOS limits how often widgets reload. The widget fetches about every 5 minutes and counts down minute by minute in between, so treat it as a quick glance. Open the app for exact times.
-- **Alerts with the app closed**: a free account can't receive push notifications. The alert is scheduled from the estimate and updated whenever the app runs. If the app is closed and the bus speeds up or slows down, the alert can be off by about a minute.
-- **Unofficial feed**: this uses the unofficial `ucirvine.transloc.com/Services/JSONPRelay.svc` endpoints, which TransLoc could change at any time.
+- iOS limits how often widgets reload. The widget fetches about every 5 minutes and counts down minute by minute in between, so it's good for a quick glance. Open the app for exact times.
+- A free Apple account can't receive push notifications, so alerts are scheduled from the estimate and updated whenever the app runs. If the app is closed and the bus speeds up or slows down, the alert can be off by about a minute.
+- The data comes from TransLoc's unofficial `ucirvine.transloc.com/Services/JSONPRelay.svc` endpoints, which could change at any time.
 
 ## Code map
 
