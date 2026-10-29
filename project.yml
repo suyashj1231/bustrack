@@ -1,0 +1,68 @@
+name: BusTrack
+options:
+  bundleIdPrefix: com.suyashjain
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 9M948DY6YS
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  BusTrack:
+    type: application
+    platform: iOS
+    sources: [BusTrack, Shared]
+    dependencies:
+      - target: BusTrackWidget
+    info:
+      path: BusTrack/Info.plist
+      properties:
+        CFBundleDisplayName: BusTrack
+        UILaunchScreen: {}
+        CFBundleURLTypes:
+          - CFBundleURLName: com.suyashjain.bustrack
+            CFBundleURLSchemes: [bustrack]
+        UIBackgroundModes: [fetch]
+        BGTaskSchedulerPermittedIdentifiers: [com.suyashjain.bustrack.refresh]
+        NSLocationWhenInUseUsageDescription: Shows where you are on the bus map.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suyashjain.bustrack
+  BusTrackWidget:
+    type: app-extension
+    platform: iOS
+    sources: [BusTrackWidget, Shared]
+    info:
+      path: BusTrackWidget/Info.plist
+      properties:
+        CFBundleDisplayName: BusTrack
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.suyashjain.bustrack.widget
+  BusTrackTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [BusTrackTests]
+    dependencies:
+      - target: BusTrack
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.suyashjain.bustrack.tests
+schemes:
+  BusTrack:
+    build:
+      targets:
+        BusTrack: all
+        BusTrackTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [BusTrackTests]
