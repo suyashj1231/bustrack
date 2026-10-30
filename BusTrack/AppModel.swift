@@ -13,13 +13,27 @@ final class AppModel {
     private(set) var errorMessage: String?
 
     private let client = TransLocClient.shared
+    private let groupStore: StopGroupStore
+
+    init(groups: StopGroupStore) {
+        groupStore = groups
+    }
 
     var routesByID: [Int: Route] {
         Dictionary(uniqueKeysWithValues: routes.map { ($0.routeID, $0) })
     }
 
+    /// A real stop, or a user's stop group (negative id) merged into one.
     func stop(id: Int) -> Stop? {
-        stops.first { $0.id == id }
+        if let group = groupStore.group(id: id) {
+            return StopCatalog.group(group.stopIDs.compactMap { stop(id: $0) }, id: group.id, name: group.name, routes: routes)
+        }
+        return stops.first { $0.id == id }
+    }
+
+    /// Every stop group that still has at least one served stop.
+    var groupStops: [Stop] {
+        groupStore.groups.compactMap { stop(id: $0.id) }
     }
 
     func arrivals(at stop: Stop, now: Date = .now) -> [Arrival] {

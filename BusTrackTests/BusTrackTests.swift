@@ -128,6 +128,89 @@ struct ArrivalCalculatorTests {
     }
 }
 
+struct StopGroupTests {
+    @Test func groupMergesRoutesAndRouteStops() throws {
+        let routes: [Route] = try fixture("routes")
+        let stops = StopCatalog.stops(from: routes)
+        let ucNorth = try #require(stops.first { $0.id == 8 })
+        let cds2 = try #require(stops.first { $0.id == 3 })
+
+        let group = try #require(StopCatalog.group([ucNorth, cds2], id: -1, name: "Mine", routes: routes))
+        #expect(group.id == -1)
+        #expect(group.name == "Mine")
+        #expect(group.routeStopIDs == ucNorth.routeStopIDs.union(cds2.routeStopIDs))
+        #expect(group.routeIDs == [7, 4])
+        #expect(StopCatalog.group([], id: -1, name: "Empty", routes: routes) == nil)
+    }
+
+    @Test func groupShowsEachBusOnceAtItsEarlierStop() throws {
+        let routes: [Route] = try fixture("routes")
+        let stopArrivals: [StopArrivals] = try fixture("arrivals")
+        let stops = StopCatalog.stops(from: routes)
+        let fetchedAt = Date(timeIntervalSince1970: 1_793_042_430)
+        // Every A Line stop in the fixture, so the same buses show up at more than one member.
+        let members = stops.filter { $0.routeIDs.contains(7) }
+        let group = try #require(StopCatalog.group(members, id: -1, name: "All A", routes: routes))
+
+        let arrivals = ArrivalCalculator.arrivals(
+            at: group, from: stopArrivals, routes: routes, fetchedAt: fetchedAt, now: fetchedAt
+        )
+        // Bus 8 is 30s from CDS #2; bus 7 is 250s from UC North (and 699s from CDS #2, dropped).
+        let live = arrivals.filter(\.isLive)
+        #expect(live.map(\.vehicleID) == [8, 7])
+        #expect(live.map(\.date) == [fetchedAt.addingTimeInterval(30), fetchedAt.addingTimeInterval(250)])
+    }
+
+    @Test func distanceIsInMeters() throws {
+        let stops = StopCatalog.stops(from: try fixture("routes"))
+        let stop = try #require(stops.first)
+        #expect(StopCatalog.distance(stop, stop) == 0)
+    }
+}
+
+struct TrackedLinesTests {
+    @Test func keepsOnlyUniversityCenterLines() throws {
+        let routes: [Route] = try fixture("routes")
+        let aLine = try #require(routes.first { $0.routeID == 7 })
+        let emergency = Route(
+            routeID: 3, name: "Emergency Management", colorHex: "#000000", encodedPolyline: nil,
+            isRunning: true, isVisibleOnMap: true, order: 30, stops: []
+        )
+        #expect(aLine.isTrackedLine)
+        #expect(!emergency.isTrackedLine)
+        #expect(TrackedLines.names == ["A Line", "E Line", "H Line", "M Line", "N Line"])
+    }
+}
+
+struct TrackingSessionTests {
+    let now = Date(timeIntervalSince1970: 1_793_042_430)
+
+    @Test func idleWithoutATap() {
+        let plan = TrackingSession.plan(now: now, trackingUntil: nil)
+        #expect(plan == .init(entryDates: [now], reloadAt: nil))
+    }
+
+    @Test func idleOnceTheSessionEnds() {
+        #expect(TrackingSession.plan(now: now, trackingUntil: now.addingTimeInterval(-60)).reloadAt == nil)
+        // A reload that fires a few seconds early still counts as the end.
+        #expect(TrackingSession.plan(now: now, trackingUntil: now.addingTimeInterval(10)).reloadAt == nil)
+    }
+
+    @Test func refetchesEveryFiveMinutesWhileTracking() {
+        let plan = TrackingSession.plan(now: now, trackingUntil: now.addingTimeInterval(30 * 60))
+        #expect(plan.reloadAt == now.addingTimeInterval(5 * 60))
+        #expect(plan.entryDates.count == 5)
+        #expect(plan.entryDates.last == now.addingTimeInterval(4 * 60))
+    }
+
+    @Test func lastReloadLandsOnSessionEnd() {
+        let end = now.addingTimeInterval(150)
+        let plan = TrackingSession.plan(now: now, trackingUntil: end)
+        #expect(plan.reloadAt == end)
+        #expect(plan.entryDates.count == 3)
+    }
+}
+
 struct PolylineTests {
     @Test func decodesGoogleReferenceExample() {
         let points = Polyline.decode("_p~iF~ps|U_ulLnnqC_mqNvxq`@")

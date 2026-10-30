@@ -57,9 +57,15 @@ enum ArrivalCalculator {
             }
         }
         // Keep buses that are at most a minute "late" so "Now" doesn't vanish early.
+        // In a stop group one bus can serve two member stops; show it once, at the earlier one.
+        var seenVehicles = Set<String>()
         return result
             .filter { $0.date >= now.addingTimeInterval(-60) }
             .sorted { $0.date < $1.date }
+            .filter { arrival in
+                guard arrival.isLive, let vehicleID = arrival.vehicleID else { return true }
+                return seenVehicles.insert("\(arrival.routeID)-\(vehicleID)").inserted
+            }
     }
 
     /// The same arrivals grouped per route, in the stop's route order.

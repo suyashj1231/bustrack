@@ -1,10 +1,12 @@
 # BusTrack
 
-A personal tracker for UCI's Anteater Express. It uses the same live TransLoc feed as shuttle.uci.edu.
+A personal tracker for UCI's Anteater Express. It uses the same live TransLoc feed as shuttle.uci.edu, limited to the A, E, H, M and N lines that run out of University Center.
 
 The Favorites tab lists your starred stops with the next buses on each line, refreshed every 15 seconds. The Live Map shows buses moving along the route lines (every 5 seconds); tap a stop to see its arrivals. All Stops lets you search every stop and star the ones you use.
 
-On a stop's screen, tap the 🔔 next to a line and pick 1, 3, 5 or 10 minutes to get a bus-is-close alert. There's also a widget for the home screen (small or medium) and the lock screen. Long-press it, choose **Edit Widget**, and pick a stop.
+To catch whichever bus comes first at stops a few steps apart (say CDS Stop #3 and VDC Norte Stop #1, 29 m apart, or University Center North and South), tap **+ › New Stop Group** in Favorites. Pick one stop and the closest ones are suggested with their distance. A group shows every line at all of its stops, soonest first, and works anywhere a stop does: Favorites, its own screen, and alerts. If one bus stops at two stops in a group, it's listed once, at the earlier stop. Groups also appear at the top of All Stops.
+
+On a stop's screen, tap the 🔔 next to a line and pick 1, 3, 5 or 10 minutes to get a bus-is-close alert. There's also a widget for the home screen (small or medium) and the lock screen. It shows two stops: the one you leave home from and the one you take home. Long-press it, choose **Edit Widget**, and pick both. Each one can take several stops, which the widget merges like a group. The widget stays idle and shows clock times from its last fetch until you tap ↻. A tap starts 30 minutes of live countdowns, refreshed about every 5 minutes, and then it goes idle again.
 
 ## Build
 
@@ -28,7 +30,7 @@ Run the tests: `xcodebuild test -project BusTrack.xcodeproj -scheme BusTrack -de
 
 ## Known limits
 
-- iOS limits how often widgets reload. The widget fetches about every 5 minutes and counts down minute by minute in between, so it's good for a quick glance. Open the app for exact times.
+- iOS limits how often widgets reload. While tracking, the widget fetches about every 5 minutes and counts down minute by minute in between, so it's good for a quick glance. Open the app for exact times.
 - A free Apple account can't receive push notifications, so alerts are scheduled from the estimate and updated whenever the app runs. If the app is closed and the bus speeds up or slows down, the alert can be off by about a minute.
 - The data comes from TransLoc's unofficial `ucirvine.transloc.com/Services/JSONPRelay.svc` endpoints, which could change at any time.
 

@@ -39,4 +39,26 @@ enum StopCatalog {
         }
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
+
+    /// Several nearby stops treated as one: buses at any of them, on every line they serve.
+    static func group(_ members: [Stop], id: Int, name: String, routes: [Route]) -> Stop? {
+        guard let first = members.first else { return nil }
+        let routeOrder = Dictionary(uniqueKeysWithValues: routes.map { ($0.routeID, $0.order) })
+        let routeIDs = Array(Set(members.flatMap(\.routeIDs)))
+            .sorted { (routeOrder[$0] ?? 0) < (routeOrder[$1] ?? 0) }
+        return Stop(
+            id: id,
+            name: name,
+            latitude: first.latitude,
+            longitude: first.longitude,
+            routeStopIDs: members.reduce(into: Set()) { $0.formUnion($1.routeStopIDs) },
+            routeIDs: routeIDs
+        )
+    }
+
+    /// Straight-line distance in meters.
+    static func distance(_ a: Stop, _ b: Stop) -> Double {
+        CLLocation(latitude: a.latitude, longitude: a.longitude)
+            .distance(from: CLLocation(latitude: b.latitude, longitude: b.longitude))
+    }
 }

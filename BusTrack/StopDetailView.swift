@@ -7,12 +7,16 @@ struct StopDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(FavoritesStore.self) private var favorites
     @Environment(AlertManager.self) private var alertManager
+    @Environment(StopGroupStore.self) private var groups
+    @State private var editingGroup: StopGroup?
 
     private static let leadChoices = [1, 3, 5, 10]
 
     var body: some View {
         if let stop = model.stop(id: stopID) {
             content(stop)
+        } else if stopID < 0, !model.stops.isEmpty {
+            ContentUnavailableView("Group deleted", systemImage: "link")
         } else {
             ProgressView()
                 .task { await model.loadRoutes() }
@@ -54,12 +58,22 @@ struct StopDetailView: View {
         .navigationTitle(stop.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if let group = groups.group(id: stop.id) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit") { editingGroup = group }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     favorites.toggle(stop.id)
                 } label: {
                     Image(systemName: favorites.contains(stop.id) ? "star.fill" : "star")
                 }
+            }
+        }
+        .sheet(item: $editingGroup) { group in
+            NavigationStack {
+                GroupEditorView(group: group)
             }
         }
         .refreshable { await model.refreshArrivals() }

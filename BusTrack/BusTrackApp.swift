@@ -3,7 +3,8 @@ import UserNotifications
 
 @main
 struct BusTrackApp: App {
-    @State private var model = AppModel()
+    @State private var groups: StopGroupStore
+    @State private var model: AppModel
     @State private var favorites = FavoritesStore()
     @State private var alertManager = AlertManager()
     @Environment(\.scenePhase) private var scenePhase
@@ -11,6 +12,9 @@ struct BusTrackApp: App {
     private let notificationDelegate = NotificationDelegate()
 
     init() {
+        let groups = StopGroupStore()
+        _groups = State(initialValue: groups)
+        _model = State(initialValue: AppModel(groups: groups))
         UNUserNotificationCenter.current().delegate = notificationDelegate
     }
 
@@ -18,6 +22,7 @@ struct BusTrackApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
+                .environment(groups)
                 .environment(favorites)
                 .environment(alertManager)
         }

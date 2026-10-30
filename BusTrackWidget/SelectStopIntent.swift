@@ -34,9 +34,33 @@ struct StopQuery: EntityStringQuery {
 }
 
 struct SelectStopIntent: WidgetConfigurationIntent {
-    static let title: LocalizedStringResource = "Choose Stop"
-    static let description = IntentDescription("Pick the stop whose next buses the widget shows.")
+    static let title: LocalizedStringResource = "Choose Stops"
+    static let description = IntentDescription(
+        "Pick the stops you leave home from and the stops you take home. Pick several nearby stops to see whichever bus comes first."
+    )
 
-    @Parameter(title: "Stop")
-    var stop: StopEntity?
+    @Parameter(title: "Leaving home")
+    var homeStops: [StopEntity]?
+
+    @Parameter(title: "Going home")
+    var returnStops: [StopEntity]?
+}
+
+/// The widget's ↻ button: fetch now and keep tracking for `TrackingSession.duration`.
+struct RefreshIntent: AppIntent {
+    static let title: LocalizedStringResource = "Refresh Bus Times"
+    static let isDiscoverable = false
+
+    static let trackingUntilKey = "trackingUntil"
+
+    static var trackingUntil: Date? {
+        UserDefaults.standard.object(forKey: trackingUntilKey) as? Date
+    }
+
+    func perform() async throws -> some IntentResult {
+        // Runs in the widget extension, so the provider reads the same UserDefaults.
+        UserDefaults.standard.set(Date.now.addingTimeInterval(TrackingSession.duration), forKey: Self.trackingUntilKey)
+        // WidgetKit reloads the widget's timeline after a button intent finishes.
+        return .result()
+    }
 }

@@ -17,21 +17,19 @@ struct StopPickerView: View {
         }
     }
 
+    private var filteredGroups: [Stop] {
+        model.groupStops.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+    }
+
     var body: some View {
-        List(filtered) { stop in
-            HStack {
-                if isSheet {
-                    stopLabel(stop)
-                } else {
-                    NavigationLink(value: StopRoute(id: stop.id)) { stopLabel(stop) }
+        List {
+            if !filteredGroups.isEmpty {
+                Section("My Groups") {
+                    ForEach(filteredGroups) { stopRow($0) }
                 }
-                Button {
-                    favorites.toggle(stop.id)
-                } label: {
-                    Image(systemName: favorites.contains(stop.id) ? "star.fill" : "star")
-                        .foregroundStyle(.yellow)
-                }
-                .buttonStyle(.borderless)
+            }
+            Section {
+                ForEach(filtered) { stopRow($0) }
             }
         }
         .overlay {
@@ -41,7 +39,7 @@ struct StopPickerView: View {
                 } else {
                     ProgressView("Loading stops…")
                 }
-            } else if filtered.isEmpty {
+            } else if filtered.isEmpty, filteredGroups.isEmpty {
                 ContentUnavailableView.search(text: query)
             }
         }
@@ -55,6 +53,23 @@ struct StopPickerView: View {
             }
         }
         .refreshable { await model.loadRoutes(forceRefresh: true) }
+    }
+
+    private func stopRow(_ stop: Stop) -> some View {
+        HStack {
+            if isSheet {
+                stopLabel(stop)
+            } else {
+                NavigationLink(value: StopRoute(id: stop.id)) { stopLabel(stop) }
+            }
+            Button {
+                favorites.toggle(stop.id)
+            } label: {
+                Image(systemName: favorites.contains(stop.id) ? "star.fill" : "star")
+                    .foregroundStyle(.yellow)
+            }
+            .buttonStyle(.borderless)
+        }
     }
 
     private func stopLabel(_ stop: Stop) -> some View {

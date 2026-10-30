@@ -25,9 +25,10 @@ actor TransLocClient {
             return cachedRoutes
         }
         do {
-            let routes: [Route] = try await get(
+            let allRoutes: [Route] = try await get(
                 "GetRoutesForMapWithScheduleWithEncodedLine", query: ["IsDispatch": "false"]
             )
+            let routes = allRoutes.filter(\.isTrackedLine)
             cachedRoutes = routes
             routesFetchedAt = .now
             Self.saveToDisk(routes)
@@ -35,7 +36,7 @@ actor TransLocClient {
         } catch {
             // Offline: fall back to whatever we saved last time.
             if let cachedRoutes { return cachedRoutes }
-            if let saved = Self.loadFromDisk() {
+            if let saved = Self.loadFromDisk()?.filter(\.isTrackedLine) {
                 cachedRoutes = saved
                 return saved
             }

@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -13,10 +14,10 @@ struct ArrivalsWidget: Widget {
         AppIntentConfiguration(kind: "ArrivalsWidget", intent: SelectStopIntent.self, provider: ArrivalsProvider()) { entry in
             ArrivalsWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
-                .widgetURL(entry.stopID.flatMap { URL(string: "bustrack://stop/\($0)") })
+                .widgetURL(entry.sections.first?.stopID.flatMap { URL(string: "bustrack://stop/\($0)") })
         }
         .configurationDisplayName("Next Bus")
-        .description("Upcoming Anteater Express buses at a stop.")
+        .description("Next buses at the stop you leave home from and the stop you take home. Tap ↻ to track for 30 minutes.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline])
     }
 }
@@ -26,67 +27,80 @@ struct ArrivalsWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .accessoryInline:
-            inline
-        case .accessoryRectangular:
-            rectangular
-        case .systemMedium:
-            medium
-        default:
-            small
+        if entry.sections.isEmpty, family != .accessoryInline {
+            messageOnly
+        } else {
+            switch family {
+            case .accessoryInline:
+                inline
+            case .accessoryRectangular:
+                rectangular
+            case .systemMedium:
+                medium
+            default:
+                small
+            }
         }
     }
 
     // MARK: Home screen
 
     private var small: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(entry.stopName)
-                .font(.caption.weight(.semibold))
-                .lineLimit(2)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 0)
-            if let next = entry.arrivals.first {
-                routeLabel(next)
-                Text(next.label(relativeTo: entry.date))
-                    .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                if let then = entry.arrivals.dropFirst().first {
-                    Text("then \(then.routeName) \(then.label(relativeTo: entry.date))")
-                        .font(.caption2)
+        VStack(alignment: .leading, spacing: 6) {
+            header
+            ForEach(entry.sections) { section in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(section.title)
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if let next = section.arrivals.first {
+                        HStack(spacing: 4) {
+                            routeLabel(next)
+                            Spacer(minLength: 2)
+                            timeText(next)
+                                .font(.subheadline.weight(.bold).monospacedDigit())
+                        }
+                    } else {
+                        sectionMessage(section)
+                    }
                 }
-            } else {
-                messageView
             }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var medium: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(entry.stopName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            if entry.arrivals.isEmpty {
-                Spacer(minLength: 0)
-                messageView
-                Spacer(minLength: 0)
-            } else {
-                ForEach(groupedByRoute.prefix(3), id: \.routeID) { group in
-                    HStack {
-                        routeLabel(group.arrivals[0])
-                        Spacer()
-                        Text(group.arrivals.prefix(2).map { $0.label(relativeTo: entry.date) }.joined(separator: " · "))
-                            .font(.headline.monospacedDigit())
+            header
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(entry.sections) { section in
+                    stopLink(section) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(section.title)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Text(section.stopName)
+                                .font(.caption)
+                                .lineLimit(1)
+                            if section.arrivals.isEmpty {
+                                sectionMessage(section)
+                            } else {
+                                ForEach(section.arrivals.prefix(3)) { arrival in
+                                    HStack(spacing: 4) {
+                                        routeLabel(arrival)
+                                        Spacer(minLength: 2)
+                                        timeText(arrival)
+                                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                                    }
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                Spacer(minLength: 0)
             }
+            Spacer(minLength: 0)
         }
     }
 
@@ -94,48 +108,88 @@ struct ArrivalsWidgetView: View {
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(entry.stopName)
-                .font(.caption2.weight(.semibold))
-                .lineLimit(1)
-            if entry.arrivals.isEmpty {
-                Text(entry.message ?? "No buses")
-                    .font(.caption)
-            } else {
-                ForEach(entry.arrivals.prefix(2)) { arrival in
-                    Text("\(arrival.routeName)  \(arrival.label(relativeTo: entry.date))")
+            ForEach(entry.sections) { section in
+                if let next = section.arrivals.first {
+                    Text("\(section.title): \(next.routeName) \(timeString(next))")
                         .font(.caption.monospacedDigit())
+                        .lineLimit(1)
+                } else {
+                    Text("\(section.title): \(section.message ?? "No buses")")
+                        .font(.caption)
+                        .lineLimit(1)
                 }
+            }
+            if !entry.isTracking {
+                Text("Idle")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var inline: some View {
-        if let next = entry.arrivals.first {
-            Text("\(Image(systemName: "bus.fill")) \(next.routeName) \(next.label(relativeTo: entry.date))")
+        // Whichever stop has the sooner bus.
+        let next = entry.sections.compactMap(\.arrivals.first).min { $0.date < $1.date }
+        if let next {
+            return Text("\(Image(systemName: "bus.fill")) \(next.routeName) \(timeString(next))")
         } else {
-            Text("\(Image(systemName: "bus.fill")) \(entry.message ?? "No buses")")
+            return Text("\(Image(systemName: "bus.fill")) \(entry.message ?? "No buses")")
         }
     }
 
     // MARK: Pieces
 
-    private var groupedByRoute: [(routeID: Int, arrivals: [Arrival])] {
-        var order: [Int] = []
-        var groups: [Int: [Arrival]] = [:]
-        for arrival in entry.arrivals {
-            if groups[arrival.routeID] == nil { order.append(arrival.routeID) }
-            groups[arrival.routeID, default: []].append(arrival)
+    /// Live/idle status plus the ↻ button that starts a 30-minute tracking session.
+    private var header: some View {
+        HStack(spacing: 4) {
+            if let until = entry.trackingUntil {
+                Circle().fill(.green).frame(width: 6, height: 6)
+                Text("Live till \(until.formatted(date: .omitted, time: .shortened))")
+            } else {
+                Text("Idle · tap ↻")
+            }
+            Spacer(minLength: 0)
+            Button(intent: RefreshIntent()) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption.weight(.bold))
+                    .padding(4)
+                    .background(.fill.secondary, in: Circle())
+            }
+            .buttonStyle(.plain)
         }
-        return order.map { (routeID: $0, arrivals: groups[$0]!) }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    /// Tapping a column opens that stop in the app.
+    @ViewBuilder
+    private func stopLink(_ section: ArrivalsEntry.Section, @ViewBuilder content: () -> some View) -> some View {
+        if let id = section.stopID, let url = URL(string: "bustrack://stop/\(id)") {
+            Link(destination: url, label: content)
+        } else {
+            content()
+        }
+    }
+
+    /// Countdown while tracking; clock time when idle, since a countdown would go stale.
+    private func timeString(_ arrival: Arrival) -> String {
+        entry.isTracking ? arrival.label(relativeTo: entry.date)
+            : arrival.date.formatted(date: .omitted, time: .shortened)
+    }
+
+    private func timeText(_ arrival: Arrival) -> some View {
+        Text(timeString(arrival))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
     private func routeLabel(_ arrival: Arrival) -> some View {
         HStack(spacing: 4) {
             Circle()
                 .fill(Color(hex: arrival.colorHex))
-                .frame(width: 10, height: 10)
-            Text(arrival.routeName)
+                .frame(width: 8, height: 8)
+            Text(arrival.routeName.replacingOccurrences(of: " Line", with: ""))
                 .font(.subheadline.weight(.semibold))
             if !arrival.isLive {
                 Text("sched")
@@ -145,10 +199,22 @@ struct ArrivalsWidgetView: View {
         }
     }
 
-    private var messageView: some View {
-        Text(entry.message ?? "No buses running")
-            .font(.footnote)
+    private func sectionMessage(_ section: ArrivalsEntry.Section) -> some View {
+        Text(section.message ?? "No buses")
+            .font(.caption)
             .foregroundStyle(.secondary)
+    }
+
+    private var messageOnly: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if family == .systemSmall || family == .systemMedium { header }
+            Spacer(minLength: 0)
+            Text(entry.message ?? "No buses running")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
