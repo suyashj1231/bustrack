@@ -81,11 +81,12 @@ struct ArrivalsProvider: AppIntentTimelineProvider {
                         return ArrivalsEntry.Section(title: title, stopID: first.id, stopName: first.name,
                                                      arrivals: [], message: "Stop not served")
                     }
+                    // Live buses only: a timetable guess for a line that isn't running just wastes a row.
                     let arrivals = ArrivalCalculator.arrivals(
                         at: stop, from: stopArrivals, routes: routes, fetchedAt: fetchedAt, now: entryDate
-                    )
+                    ).filter(\.isLive)
                     return ArrivalsEntry.Section(title: title, stopID: stop.id, stopName: stop.name,
-                                                 arrivals: arrivals, message: arrivals.isEmpty ? "No buses" : nil)
+                                                 arrivals: arrivals, message: arrivals.isEmpty ? "No buses running" : nil)
                 }
                 return ArrivalsEntry(date: entryDate, sections: sections, trackingUntil: trackingUntil, message: nil)
             }

@@ -8,9 +8,11 @@ struct StopEntity: AppEntity {
 
     let id: Int
     let name: String
+    /// e.g. "H, N", so similar names like 631 VDC Stop #1 and VDC Norte Stop #1 are easy to tell apart.
+    var lines = ""
 
     var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)")
+        DisplayRepresentation(title: "\(name)", subtitle: lines.isEmpty ? nil : "\(lines)")
     }
 }
 
@@ -29,7 +31,13 @@ struct StopQuery: EntityStringQuery {
 
     private func allStops() async throws -> [StopEntity] {
         let routes = try await TransLocClient.shared.routes()
-        return StopCatalog.stops(from: routes).map { StopEntity(id: $0.id, name: $0.name) }
+        let letters = Dictionary(uniqueKeysWithValues: routes.map {
+            ($0.routeID, $0.name.replacingOccurrences(of: " Line", with: ""))
+        })
+        return StopCatalog.stops(from: routes).map { stop in
+            StopEntity(id: stop.id, name: stop.name,
+                       lines: stop.routeIDs.compactMap { letters[$0] }.joined(separator: ", "))
+        }
     }
 }
 

@@ -53,13 +53,9 @@ struct ArrivalsWidgetView: View {
                     Text(section.title)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    if let next = section.arrivals.first {
-                        HStack(spacing: 4) {
-                            routeLabel(next)
-                            Spacer(minLength: 2)
-                            timeText(next)
-                                .font(.subheadline.weight(.bold).monospacedDigit())
-                        }
+                    if let line = lines(section).first {
+                        lineRow(line)
+                            .font(.subheadline.weight(.bold).monospacedDigit())
                     } else {
                         sectionMessage(section)
                     }
@@ -86,13 +82,9 @@ struct ArrivalsWidgetView: View {
                             if section.arrivals.isEmpty {
                                 sectionMessage(section)
                             } else {
-                                ForEach(section.arrivals.prefix(3)) { arrival in
-                                    HStack(spacing: 4) {
-                                        routeLabel(arrival)
-                                        Spacer(minLength: 2)
-                                        timeText(arrival)
-                                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                                    }
+                                ForEach(lines(section).prefix(3), id: \.first?.routeID) { line in
+                                    lineRow(line)
+                                        .font(.subheadline.weight(.semibold).monospacedDigit())
                                 }
                             }
                         }
@@ -172,16 +164,37 @@ struct ArrivalsWidgetView: View {
         }
     }
 
+    /// One entry per line, soonest line first, each holding that line's upcoming buses in order.
+    private func lines(_ section: ArrivalsEntry.Section) -> [[Arrival]] {
+        Dictionary(grouping: section.arrivals, by: \.routeID).values
+            .sorted { $0[0].date < $1[0].date }
+    }
+
+    /// "A   4 · 12 min" while tracking, "A   11:57 · 12:05" when idle.
+    private func lineRow(_ line: [Arrival]) -> some View {
+        let shown = line.prefix(2)
+        let times: String
+        if entry.isTracking {
+            let minutes = shown.map { $0.minutesAway(from: entry.date) }
+            times = minutes.map { $0 == 0 ? "Now" : "\($0)" }.joined(separator: " · ")
+                + (minutes.last == 0 ? "" : " min")
+        } else {
+            times = shown.map { $0.date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute()) }
+                .joined(separator: " · ")
+        }
+        return HStack(spacing: 4) {
+            routeLabel(line[0])
+            Spacer(minLength: 2)
+            Text(times)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
     /// Countdown while tracking; clock time when idle, since a countdown would go stale.
     private func timeString(_ arrival: Arrival) -> String {
         entry.isTracking ? arrival.label(relativeTo: entry.date)
             : arrival.date.formatted(date: .omitted, time: .shortened)
-    }
-
-    private func timeText(_ arrival: Arrival) -> some View {
-        Text(timeString(arrival))
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
     }
 
     private func routeLabel(_ arrival: Arrival) -> some View {
